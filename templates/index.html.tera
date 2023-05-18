@@ -1,0 +1,9 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Templating Example</title>
+  </head>
+  <body>
+    　Argument :{{ foo }}
+  </body>
+</html>
