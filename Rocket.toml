@@ -1,0 +1,15 @@
+[default]
+host = "localhost"
+limits = { form = "64 kB", json = "1 MiB" }
+foo="bar"
+
+[debug]
+port = 8000
+limits = { json = "10MiB" }
+foo="buzz"
+
+
+[release]
+host="dev.classmethod.jp"
+port = 9999
+foo="hoge"
