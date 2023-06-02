@@ -8,9 +8,32 @@ use rocket::form::Form;
 use rocket::http::RawStr;
 
 #[derive(FromForm)]
-pub struct LoginInfo<'r> {
-    user_cd: &'r str,
-    password: &'r str,
+pub struct LoginInfo {
+    user_cd: String,
+    password: String,
+}
+
+#[derive(Debug)]
+struct Authenticator {
+    user_cd: String,
+    password: String,
+}
+
+impl Authenticator {
+    fn new(user_cd: impl Into<String>, password: impl Into<String>) -> Self {
+        Self {
+            user_cd: user_cd.into(),
+            password: password.into(),
+        }
+    }
+
+    fn authenticate(&self) -> Result<String, String> {
+        if self.user_cd == "take" && self.password == "yama" {
+            Ok(self.user_cd.clone())
+        } else {
+            Err("Not Found".to_string())
+        }
+    }
 }
 
 #[get("/")]
@@ -19,9 +42,10 @@ fn index() -> &'static str {
 }
 
 #[post("/login", data = "<login_info>")]
-pub fn login(login_info: Form<LoginInfo<'_>>) -> Template {
-    println!("{}", login_info.user_cd);
-    println!("{}", login_info.password);
+pub fn login(login_info: Form<LoginInfo>) -> Template {
+    let _auth = Authenticator::new(&login_info.user_cd, &login_info.password);
+    let _is_authenticated = _auth.authenticate();
+    println!("{:?}", _is_authenticated);
     Template::render("reception", context! {foo: ""})
 }
 
@@ -73,7 +97,7 @@ mod test {
         let client = Client::tracked(rocket()).expect("valid rocket instance");
         let mut response = client.post(uri!(super::login))
             .header(ContentType::Form)
-            .body("user_cd=aaa&password=bbb")
+            .body("user_cd=take&password=yama")
             .dispatch();
 
         assert_eq!(response.status(), Status::Ok);
