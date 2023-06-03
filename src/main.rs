@@ -27,9 +27,37 @@ impl Authenticator {
         }
     }
 
-    fn authenticate(&self) -> Result<String, String> {
-        if self.user_cd == "take" && self.password == "yama" {
-            Ok(self.user_cd.clone())
+    fn authenticate(&self) -> Result<(), String> {
+        let repository = AuthRepository::new();
+        repository.check(&self)
+    }
+}
+
+enum DBConnection {
+    Database,
+    Vector,
+}
+
+trait AuthRepositoryTrait {
+    fn check(&self, authenticator: &Authenticator) -> Result<(), String>;
+}
+
+struct AuthRepository {
+    db: DBConnection
+}
+
+impl AuthRepository {
+    fn new() -> Self {
+        Self {
+            db: DBConnection::Vector
+        }
+    }
+}
+
+impl AuthRepositoryTrait for AuthRepository {
+    fn check(&self, authenticator: &Authenticator) -> Result<(), String> {
+        if authenticator.user_cd == "take" && authenticator.password == "yama" {
+            Ok(())
         } else {
             Err("Not Found".to_string())
         }
