@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Success Example</title>
+  </head>
+  <body>
+    <h1>{{ result }}</h1>
+    <h2>{{ message }}</h1>
+    <form method="get" action="reception">
+      <input type="submit" value="back login">
+    </form>
+  </body>
+</html>

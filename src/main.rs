@@ -5,9 +5,10 @@ use rocket::{get, launch, routes};
 use rocket_dyn_templates::{Template, handlebars, context};
 use rocket::serde::Deserialize;
 use rocket::form::Form;
-use rocket::http::RawStr;
+// use rocket::http::RawStr;
+use mockall::*;
 
-#[derive(FromForm)]
+#[derive(FromForm, Debug)]
 pub struct LoginInfo {
     user_cd: String,
     password: String,
@@ -15,33 +16,35 @@ pub struct LoginInfo {
 
 #[derive(Debug)]
 struct Authenticator {
-    user_cd: String,
-    password: String,
+    login_info: LoginInfo,
+    repository: AuthRepository,
 }
 
 impl Authenticator {
-    fn new(user_cd: impl Into<String>, password: impl Into<String>) -> Self {
+    fn new(login_info: LoginInfo, repository: AuthRepository) -> Self {
         Self {
-            user_cd: user_cd.into(),
-            password: password.into(),
+            login_info: login_info,
+            repository: repository,
         }
     }
 
     fn authenticate(&self) -> Result<(), String> {
-        let repository = AuthRepository::new();
-        repository.check(&self)
+        self.repository.check(&self)
     }
 }
 
+#[derive(Debug)]
 enum DBConnection {
     Database,
     Vector,
 }
 
+#[automock]
 trait AuthRepositoryTrait {
     fn check(&self, authenticator: &Authenticator) -> Result<(), String>;
 }
 
+#[derive(Debug)]
 struct AuthRepository {
     db: DBConnection
 }
@@ -56,7 +59,7 @@ impl AuthRepository {
 
 impl AuthRepositoryTrait for AuthRepository {
     fn check(&self, authenticator: &Authenticator) -> Result<(), String> {
-        if authenticator.user_cd == "take" && authenticator.password == "yama" {
+        if authenticator.login_info.user_cd == "take" && authenticator.login_info.password == "yama" {
             Ok(())
         } else {
             Err("Not Found".to_string())
@@ -71,10 +74,12 @@ fn index() -> &'static str {
 
 #[post("/login", data = "<login_info>")]
 pub fn login(login_info: Form<LoginInfo>) -> Template {
-    let _auth = Authenticator::new(&login_info.user_cd, &login_info.password);
-    let _is_authenticated = _auth.authenticate();
-    println!("{:?}", _is_authenticated);
-    Template::render("reception", context! {foo: ""})
+    let auth_repository = AuthRepository::new();
+    let _auth = Authenticator::new(login_info.into_inner(), auth_repository);
+    match _auth.authenticate() {
+        Ok(_) => return Template::render("login_result", context! { result: "Success!", message: "" }),
+        Err(v) => return Template::render("login_result", context! { result: "Faild!", message: v }),
+    }
 }
 
 #[get("/reception")]
@@ -82,10 +87,15 @@ pub fn reception() -> Template {
     Template::render("reception", context! {foo: ""})
 }
 
+#[get("/login_result")]
+pub fn login_result() -> Template {
+    Template::render("login_result", context! {})
+}
+
 #[launch]
 fn rocket() -> _ {
     let rocket = rocket::build()
-        .mount("/", routes![index, reception, login])
+        .mount("/", routes![index, reception, login, login_result])
         .attach(Template::fairing());
 
     let figment = rocket.figment();
@@ -129,8 +139,11 @@ mod test {
             .dispatch();
 
         assert_eq!(response.status(), Status::Ok);
-        assert_eq!(response.content_type(), Some(ContentType::Plain));
         assert!(response.headers().get_one("X-Content-Type-Options").is_some());
-        assert_eq!(response.into_string().unwrap(), "Hello, world!");
+        assert!(response.into_string().unwrap().contains("Success!"))
+    }
+
+    #[test]
+    fn test_authenticate() {
     }
 }
