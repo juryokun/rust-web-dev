@@ -4,7 +4,7 @@
     <title>Success Example</title>
   </head>
   <body>
-    <h1>{{ result }}</h1>
+    <h1>{{ kind }}</h1>
     <h2>{{ message }}</h1>
     <form method="get" action="reception">
       <input type="submit" value="back login">

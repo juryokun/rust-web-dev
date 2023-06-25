@@ -6,7 +6,7 @@
   <body>
     <form method="post" action="login">
       ユーザ情報を入力ください。<br>
-      <input type="text" id="user_cd" name="user_cd">
+      <input type="text" id="username" name="username">
       <input type="password" id="password" name="password" minlength="4" required>
       <input type="submit" value="Sign in">
     </form>
