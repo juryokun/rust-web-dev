@@ -11,7 +11,28 @@ use rocket_dyn_templates::{context, handlebars, Template};
 use serde_json::json;
 // use serde::{Deserialize, Serialize};
 // use rocket::http::RawStr;
+use diesel::pg::PgConnection;
+use diesel::prelude::*;
+use dotenvy::dotenv;
 use mockall::*;
+use std::env;
+
+pub mod schema;
+
+pub fn establish_connection() -> PgConnection {
+    dotenv().ok();
+
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    PgConnection::establish(&database_url).expect(&format!("Error connecting to {}", database_url))
+}
+
+#[derive(Queryable, Selectable)]
+#[diesel(table_name = crate::schema::users)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct Users {
+    pub username: String,
+    pub password: String,
+}
 
 // ユーザーのデータモデル
 #[serde(crate = "rocket::serde")]
@@ -32,9 +53,7 @@ struct LoginForm {
 fn login(form: Form<LoginForm>) -> Result<Flash<Redirect>, Flash<Redirect>> {
     let login_form = form.into_inner();
 
-    let db = PgDatabase {
-        connection: "postgres".to_string(),
-    };
+    let mut db = PgDatabase::new();
     let user = db.find_by_username(&login_form.username);
     // let hashed_password = hash(dummy_user.password, DEFAULT_COST).unwrap();
     // let password_matched = verify(&login_form.password, &hashed_password).map_err(|_| {
@@ -73,31 +92,34 @@ impl<R: UserRepository> UserService<R> {
             user_repository: user_repository,
         }
     }
-    fn login(&self, login_form: &LoginForm) -> Result<bool, ()> {
+    fn login(&mut self, login_form: &LoginForm) -> Result<bool, ()> {
         let user = self.user_repository.find_by_username(&login_form.username);
         let password_matched = true;
         Ok(password_matched)
     }
 }
 
-#[derive(Debug)]
 struct PgDatabase {
-    connection: String,
+    connection: PgConnection,
+}
+impl PgDatabase {
+    fn new() -> Self {
+        Self {
+            connection: establish_connection(),
+        }
+    }
 }
 
 #[automock]
 trait UserRepository {
-    fn find_by_username(&self, username: &str) -> Option<User>;
+    fn find_by_username(&mut self, username: &str) -> Result<Users, diesel::result::Error>;
 }
 
 impl UserRepository for PgDatabase {
-    fn find_by_username(&self, username: &str) -> Option<User> {
-        println!("{}", self.connection);
-        let user = User {
-            username: "yama".to_string(),
-            password: "take".to_string(),
-        };
-        Some(user)
+    fn find_by_username(&mut self, username: &str) -> Result<Users, diesel::result::Error> {
+        use self::schema::users::dsl::*;
+        let results = users.find(username).first::<Users>(&mut self.connection);
+        results
     }
 }
 
@@ -199,13 +221,13 @@ mod test {
             .with(predicate::eq("yama"))
             .times(1)
             .returning(|_| {
-                Some(User {
+                Ok(Users {
                     username: "yama".to_string(),
                     password: "take".to_string(),
                 })
             });
 
-        let service = UserService::new(mock_user_repository);
+        let mut service = UserService::new(mock_user_repository);
         let result = service.login(&test_user);
         assert_eq!(result, Ok(true));
     }
